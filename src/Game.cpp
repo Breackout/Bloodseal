@@ -6,13 +6,6 @@
 
 Render rend(title, ScreenWidth, ScreenHeight);
 
-bool RectangleCollision(const SDL_FRect& r1, const SDL_FRect& r2) {
-    return r1.x < r2.x + r2.w &&
-           r1.x + r1.w > r2.x &&
-           r1.y < r2.y + r2.h &&
-           r1.y + r1.h > r2.y;
-}
-
 void Camera::SetBounds(float worldW, float worldH)
 {
     worldWidth = worldW;
@@ -78,6 +71,12 @@ void Player::move(float dt, const bool* keys)
     if (vel.x > maxSpeed)  vel.x = maxSpeed;
     if (vel.x < -maxSpeed) vel.x = -maxSpeed;
 
+    if(keys[SDL_SCANCODE_SPACE] && isGround)
+    {
+        vel.y = jumpForce;
+        isGround = false;
+    }
+
     // Aggiorna la posizione in base alla velocità
     pos.x += vel.x;
     pos.y += GRAVITY * dt;
@@ -125,13 +124,37 @@ void Game::Update(float dt, const bool* keys)
 {
     player.Update(dt, keys);
 
-    SDL_FRect worldBox = { player.pos.x, player.pos.y, 100.0f, 100.0f };
-    CollisionResult res = ResolveAABBPolygon(worldBox, ground);
-    if (res.collided)
+    // 1. Spostamento e collisione Asse X
+    player.pos.x += player.vel.x * dt;
+    SDL_FRect boxX = { player.pos.x, player.pos.y, 100.0f, 100.0f };
+    CollisionResult resX = ResolveAABBPolygon(boxX, ground);
+    if (resX.collided)
     {
-        player.pos.x += res.mtv.x;
-        player.pos.y += res.mtv.y;
-        if (res.mtv.y < 0.0f) player.vel.y = 0.0f; // player è "a terra" quando la correzione spinge verso l'alto
+        player.pos.x += resX.mtv.x;
+        player.vel.x = 0.0f;
+    }
+
+    // 2. Spostamento e collisione Asse Y (Salto + Gravità)
+    player.pos.y += player.vel.y * dt;
+    player.isGround = false; // Resettiamo lo stato ogni frame
+
+    SDL_FRect boxY = { player.pos.x, player.pos.y, 100.0f, 100.0f };
+    CollisionResult resY = ResolveAABBPolygon(boxY, ground);
+    if (resY.collided)
+    {
+        player.pos.y += resY.mtv.y;
+
+        // Se l'MTV ci spinge verso l'ALTO (mtv.y < 0), significa che stiamo toccando il pavimento
+        if (resY.mtv.y < 0.0f)
+        {
+            player.isGround = true;
+            player.vel.y = 0.0f; // Azzera la velocità di caduta
+        }
+        // Se l'MTV ci spinge verso il BASSO (mtv.y > 0), abbiamo picchiato la testa
+        else if (resY.mtv.y > 0.0f)
+        {
+            player.vel.y = 0.0f;
+        }
     }
 
     camera.Update(player.pos, 100.0f, 100.0f, dt);

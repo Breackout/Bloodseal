@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 
-inline float GRAVITY = 500.0f;
+inline float GRAVITY = 350.0f;
 inline int ScreenWidth = 800;
 inline int ScreenHeight = 600;
 inline const char* title = "Game";

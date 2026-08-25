@@ -1,278 +1,296 @@
-// LevelEditor.cpp
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
+#include <cstddef>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include <fstream>
-#include <cstdlib>
-#include <algorithm>
+
+using json = nlohmann::json;
+
 
 struct vec2D { float x = 0.0f, y = 0.0f; };
-struct Platform { std::vector<vec2D> points; };
+struct platform {
+    std::vector<vec2D> point;
+    bool isGround = true;
+};
 
-std::vector<Platform> platforms;
-Platform currentPlatform;
+std::vector<platform> platforms;
+platform currentPlatform;
 
-vec2D cameraPos = { 0.0f, 0.0f };
-float zoom = 1.0f;
-const float zoomStep = 0.1f;
-const float minZoom = 0.1f;
-const float maxZoom = 5.0f;
+vec2D camera { 0.0f, 0.0f };
+float zoom { 1.0f };
 
-bool spaceHeld = false;
-bool isPanning = false;
-vec2D panStartMouse;
-vec2D panStartCamera;
+vec2D mousePos { 0.0f, 0.0f };
+vec2D oldMousePos{ 0.0f, 0.0f };
+bool isSpacePressed { false };
+bool isLeftButtonPressed { false };
 
-// converte coordinate schermo -> coordinate mondo (tiene conto di camera e zoom)
-vec2D ScreenToWorld(float sx, float sy)
+
+// converte le cordinate MONDO a quelle a schermo
+// serve per capire dove renderizzare un punto (dato un punto A si trovera a schermo a punto B)
+vec2D WorldToScreen(vec2D worldPos)
 {
-    return { sx / zoom + cameraPos.x, sy / zoom + cameraPos.y };
+    return {
+        worldPos.x - camera.x,
+        worldPos.y - camera.y,
+    };
 }
 
-// converte coordinate mondo -> coordinate schermo (per disegnare)
-vec2D WorldToScreen(float wx, float wy)
+// il contrario prende una cordinata a schermo e la converte al mondo
+// essenzialmente prende appunt un punto dentro lo schermo renzerizzato
+// e capisce dove si colloca nel mondo
+vec2D ScreenToWorld(vec2D screenPos)
 {
-    return { (wx - cameraPos.x) * zoom, (wy - cameraPos.y) * zoom };
+    return {
+        screenPos.x / zoom + camera.x,
+        screenPos.y / zoom + camera.y,
+    };
 }
 
-void ZoomAt(float screenX, float screenY, float newZoom)
+// molto semplice calcola la posizione del camera basandosi sullo spostamento del mouse
+// e tiene conto anche dello zoom ofc
+void MoveCamera()
 {
-    newZoom = std::clamp(newZoom, minZoom, maxZoom);
+    if(isSpacePressed && isLeftButtonPressed)
+    {
+        camera.x -= (mousePos.x - oldMousePos.x) / zoom;
+        camera.y -= (mousePos.y - oldMousePos.y) / zoom;
+    }
 
-    // il punto mondo sotto il cursore, prima dello zoom
-    vec2D worldBefore = ScreenToWorld(screenX, screenY);
-
-    zoom = newZoom;
-
-    // il punto mondo sotto il cursore, dopo lo zoom (con la vecchia camera)
-    vec2D worldAfter = ScreenToWorld(screenX, screenY);
-
-    // sposta la camera per compensare, cosi il punto sotto il cursore resta fermo
-    cameraPos.x += worldBefore.x - worldAfter.x;
-    cameraPos.y += worldBefore.y - worldAfter.y;
+    oldMousePos = mousePos;
 }
 
-void DrawPoint(SDL_Renderer* renderer, float wx, float wy, float radius = 4.0f)
+void DrawPoint(SDL_Renderer* renderer, vec2D pos, float radius = 4.0f)
 {
-    vec2D s = WorldToScreen(wx, wy);
-    float r = radius * zoom;
-    SDL_FRect rect = { s.x - r, s.y - r, r * 2.0f, r * 2.0f };
-    SDL_RenderFillRect(renderer, &rect);
+    vec2D s = WorldToScreen(pos);
+    SDL_FRect point {
+        s.x - radius,
+        s.y - radius,
+        radius * 2.0f,
+        radius * 2.0f
+    };
+    SDL_RenderFillRect(renderer, &point);
 }
 
-void DrawPlatform(SDL_Renderer* renderer, const Platform& plat, bool closed)
+void DrawPlatform(SDL_Renderer* renderer, const platform& plat, bool closed)
 {
-    if (plat.points.empty()) return;
+    if(plat.point.empty())  return;
 
     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    for (size_t i = 0; i + 1 < plat.points.size(); i++)
+    for (size_t i = 0; i + 1 < plat.point.size(); i++)
     {
-        vec2D a = WorldToScreen(plat.points[i].x, plat.points[i].y);
-        vec2D b = WorldToScreen(plat.points[i + 1].x, plat.points[i + 1].y);
+        vec2D a = WorldToScreen({plat.point[i].x, plat.point[i].y});
+        vec2D b = WorldToScreen({plat.point[i + 1].x, plat.point[i + 1].y});
         SDL_RenderLine(renderer, a.x, a.y, b.x, b.y);
     }
-    if (closed && plat.points.size() > 2)
+    if (closed && plat.point.size() > 2)
     {
-        vec2D a = WorldToScreen(plat.points.back().x, plat.points.back().y);
-        vec2D b = WorldToScreen(plat.points.front().x, plat.points.front().y);
+        vec2D a = WorldToScreen({plat.point.back().x, plat.point.back().y});
+        vec2D b = WorldToScreen({plat.point.front().x, plat.point.front().y});
         SDL_RenderLine(renderer, a.x, a.y, b.x, b.y);
     }
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    for (auto& p : plat.points)
-        DrawPoint(renderer, p.x, p.y);
+    for(const vec2D &p : plat.point)
+    {
+        DrawPoint(renderer, p);
+    }
 }
 
-void SavePlatforms(const char* filename)
+void SavePlayform(const char* path)
 {
-    std::ofstream out(filename);
-    if (!out.is_open())
+    json j = json::array();
+
+    for(const platform& plat : platforms)
     {
-        SDL_Log("Impossibile aprire il file per salvare: %s", filename);
+        json platJson;
+        platJson["isGround"] = plat.isGround;
+
+        json pointsJson = json::array();
+        for(const vec2D& p : plat.point)
+        {
+            pointsJson.push_back({
+                { "x", p.x },
+                { "y", p.y }
+            });
+        }
+        platJson["points"] = pointsJson;
+
+        j.push_back(platJson);
+    }
+
+    std::ofstream file(path);
+    if(!file.is_open())
+    {
+        SDL_Log("could not open the file, ERROR: %s", path);
         return;
     }
 
-    // i punti sono già salvati in coordinate MONDO (vedi ScreenToWorld sul click),
-    // quindi qui non serve nessuna conversione
-    out << platforms.size() << "\n";
-    for (auto& plat : platforms)
-    {
-        out << plat.points.size() << "\n";
-        for (auto& p : plat.points)
-            out << p.x << " " << p.y << "\n";
-    }
-
-    SDL_Log("Salvato in %s (%zu piattaforme)", filename, platforms.size());
+    file << j.dump(4);
+    file.close();
 }
 
 int main()
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
+    if(!SDL_Init(SDL_INIT_VIDEO))
     {
-        SDL_Log("SDL_Init fallito: %s", SDL_GetError());
+        SDL_Log("could not init SDL, ERROR: %s", SDL_GetError());
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("Level Editor", 1280, 720, 0);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
+    SDL_Window* window { nullptr };
+    window = SDL_CreateWindow("level editor", 800, 600, SDL_WINDOW_RESIZABLE);
+    if(window == nullptr)
+    {
+        SDL_Log("could not create the windows, ERROR: %s", SDL_GetError());
+        return 1;
+    }
 
-    SDL_Texture* mapTexture = IMG_LoadTexture(renderer, "assets/map.png");
-    if (!mapTexture)
-        SDL_Log("Impossibile caricare l'immagine: %s", SDL_GetError());
+    SDL_Renderer* renderer { nullptr };
+    renderer = SDL_CreateRenderer(window, nullptr);
+    if(renderer == nullptr)
+    {
+        SDL_Log("could not create the renderer, ERROR: %s", SDL_GetError());
+        return 1;
+    }
 
-    float mapW = 0, mapH = 0;
-    if (mapTexture)
-        SDL_GetTextureSize(mapTexture, &mapW, &mapH);
+    if(!SDL_SetRenderVSync(renderer, 1))
+        SDL_Log("could not init VSync, ERROR: %s", SDL_GetError());
 
-    // cursori creati una sola volta, non ogni frame
-    SDL_Cursor* defaultCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
-    SDL_Cursor* moveCursor    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
-    bool cursorIsMove = false;
+    SDL_Texture* tex { IMG_LoadTexture(renderer, "assets/map.png") };
+    int ScreenWidth { 800 };
+    int ScreenHeight { 600 };
 
-    bool running = true;
     SDL_Event e;
-    float mouseX = 0.0f, mouseY = 0.0f;
+    bool isRunning { true };
 
-    while (running)
+    while (isRunning)
     {
         while (SDL_PollEvent(&e))
         {
-            if (e.type == SDL_EVENT_QUIT)
-                running = false;
-
-            if (e.type == SDL_EVENT_MOUSE_MOTION)
+            switch (e.type)
             {
-                mouseX = e.motion.x;
-                mouseY = e.motion.y;
+                case SDL_EVENT_QUIT:
+                    isRunning = false;
+                break;
 
-                if (isPanning)
-                {
-                    // quanto si è mosso il mouse in pixel schermo -> convertilo in mondo
-                    float dx = (mouseX - panStartMouse.x) / zoom;
-                    float dy = (mouseY - panStartMouse.y) / zoom;
-                    cameraPos.x = panStartCamera.x - dx;
-                    cameraPos.y = panStartCamera.y - dy;
-                }
-            }
+                case SDL_EVENT_WINDOW_RESIZED:
+                    SDL_GetWindowSizeInPixels(window, &ScreenWidth, &ScreenHeight);
+                break;
 
-            if (e.type == SDL_EVENT_KEY_DOWN)
-            {
-                switch (e.key.key)
-                {
-                    case SDLK_SPACE:
-                        spaceHeld = true;
+                case SDL_EVENT_MOUSE_MOTION:
+                    mousePos.x = e.motion.x;
+                    mousePos.y = e.motion.y;
+                break;
+
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                    switch (e.button.button)
+                    {
+                        case SDL_BUTTON_LEFT:
+                            if(isSpacePressed)
+                            {
+                                isLeftButtonPressed = true;
+                            }
+                            else {
+                                currentPlatform.point.push_back(ScreenToWorld(mousePos));
+                            }
+                        break;
+                    }
+                break;
+
+                case SDL_EVENT_KEY_DOWN:
+                    switch (e.key.key)
+                    {
+                        case SDLK_MINUS:
+                            if(zoom > 0.1)
+                                zoom -= 0.1;
                         break;
 
-                    case SDLK_ESCAPE:
-                        running = false;
+                        case SDLK_PLUS:
+                            if(zoom < 3.0)
+                                zoom += 0.1;
                         break;
 
-                    case SDLK_RETURN:
-                        if (currentPlatform.points.size() > 1)
-                        {
+                        case SDLK_SPACE:
+                            isSpacePressed = true;
+                        break;
+
+                        case SDLK_RETURN:
                             platforms.push_back(currentPlatform);
-                            currentPlatform = Platform{};
-                            SDL_Log("Piattaforma chiusa (%zu punti)", platforms.back().points.size());
-                        }
+                            currentPlatform = platform{};
                         break;
 
-                    case SDLK_BACKSPACE:
-                        if (!currentPlatform.points.empty())
-                            currentPlatform.points.pop_back();
-                        else if (!platforms.empty())
-                        {
-                            currentPlatform = platforms.back();
-                            platforms.pop_back();
-                            if (!currentPlatform.points.empty())
-                                currentPlatform.points.pop_back();
-                        }
+                        case SDLK_BACKSPACE:
+                            if(!currentPlatform.point.empty())
+                            {
+                                currentPlatform.point.pop_back();
+                            }
+                            else if (!platforms.empty())
+                            {
+                                currentPlatform = platforms.back();
+                                platforms.pop_back();
+                                if(!currentPlatform.point.empty())
+                                {
+                                    currentPlatform.point.pop_back();
+                                }
+                            }
                         break;
 
-                    case SDLK_S:
-                        SavePlatforms("tools/leveleditor/levelData.txt");
+                        case SDLK_S:
+                            SavePlayform("tools/leveleditor/levelData.json");
+                            SDL_Log("platforms saved successfully");
                         break;
+                    }
+                break;
 
-                    // zoom in, centrato sul cursore
-                    case SDLK_P:
-                        ZoomAt(mouseX, mouseY, zoom + zoomStep);
+                case SDL_EVENT_KEY_UP:
+                    switch (e.key.key)
+                    {
+                        case SDLK_SPACE:
+                            isSpacePressed = false;
+                            isLeftButtonPressed = false;
                         break;
-
-                    // zoom out, centrato sul cursore
-                    case SDLK_L:
-                        ZoomAt(mouseX, mouseY, zoom - zoomStep);
-                        break;
-                }
-            }
-
-            if (e.type == SDL_EVENT_KEY_UP)
-            {
-                if (e.key.key == SDLK_SPACE)
-                {
-                    spaceHeld = false;
-                    isPanning = false;
-                }
-            }
-
-            // click sinistro: pan se spazio è premuto, altrimenti piazza un punto
-            if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT)
-            {
-                if (spaceHeld)
-                {
-                    isPanning = true;
-                    panStartMouse = { e.button.x, e.button.y };
-                    panStartCamera = cameraPos;
-                }
-                else
-                {
-                    vec2D worldPos = ScreenToWorld(e.button.x, e.button.y);
-                    currentPlatform.points.push_back(worldPos);
-                }
-            }
-
-            if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT)
-            {
-                isPanning = false;
-            }
-
-            // zoom anche con la rotellina, per comodità (opzionale)
-            if (e.type == SDL_EVENT_MOUSE_WHEEL)
-            {
-                ZoomAt(mouseX, mouseY, zoom + e.wheel.y * zoomStep);
+                    }
+                break;
             }
         }
 
-        // aggiorna il cursore solo quando cambia stato, non ogni frame
-        bool shouldBeMove = spaceHeld;
-        if (shouldBeMove != cursorIsMove)
-        {
-            SDL_SetCursor(shouldBeMove ? moveCursor : defaultCursor);
-            cursorIsMove = shouldBeMove;
-        }
-
-        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        if (mapTexture)
+        MoveCamera();
+
+        // tutti i calcoli per la camera
+        SDL_SetRenderScale(renderer, zoom, zoom);
+
+        if(tex)
         {
-            vec2D topLeft = WorldToScreen(0.0f, 0.0f);
-            SDL_FRect dst = { topLeft.x, topLeft.y, mapW * zoom, mapH * zoom };
-            SDL_RenderTexture(renderer, mapTexture, nullptr, &dst);
+            vec2D topLeft { WorldToScreen({ 0.0f, 0.0f }) };
+            SDL_FRect rect {
+                topLeft.x,
+                topLeft.y,
+                float(tex->w),
+                float(tex->h),
+            };
+            SDL_RenderTexture(renderer, tex, nullptr, &rect);
         }
 
-        for (auto& plat : platforms)
-            DrawPlatform(renderer, plat, true);
+        for(auto& p : platforms)
+        {
+            DrawPlatform(renderer, p, true);
+        }
 
         DrawPlatform(renderer, currentPlatform, false);
+
+
+        // gui se ma ci sara
+        SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+
 
         SDL_RenderPresent(renderer);
     }
 
-    SDL_DestroyCursor(moveCursor);
-    SDL_DestroyCursor(defaultCursor);
-    SDL_DestroyTexture(mapTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-
-    return 0;
 }
