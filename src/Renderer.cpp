@@ -1,4 +1,5 @@
 #include "Render.hpp"
+#include "SDL3_image/SDL_image.h"
 
 #include <cstdlib>
 
@@ -43,4 +44,35 @@ SDL_Window* Render::GetWindow()
 SDL_Renderer* Render::GetRenderer()
 {
     return renderer;
+}
+
+
+
+Texture::Texture() :
+    texture( nullptr )
+{}
+
+Texture::~Texture()
+{
+    Destroy();
+}
+
+bool Texture::LoadFromFile(SDL_Renderer* renderer, const char* path)
+{
+    Destroy();
+
+    texture = IMG_LoadTexture(renderer, path);
+    if(texture == nullptr)
+    {
+        SDL_Log("could not load the image, Path: %s", path);
+        return false;
+    }
+
+    return true;
+}
+
+void Texture::Destroy()
+{
+    SDL_DestroyTexture(texture);
+    texture = nullptr;
 }

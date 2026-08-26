@@ -16,3 +16,14 @@ class Render
         SDL_Window* window = nullptr;
         SDL_Renderer* renderer = nullptr;
 };
+
+struct Texture
+{
+    Texture();
+    ~Texture();
+
+    bool LoadFromFile(SDL_Renderer* renderer, const char* path);
+    void Destroy();
+
+    SDL_Texture* texture;
+};

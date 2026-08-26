@@ -1,10 +1,16 @@
 #include "Game.hpp"
-#include "Collision.hpp"
 #include "Global.hpp"
-#include "SDL3_image/SDL_image.h"
+#include "Collision.hpp"
+
 #include <cmath>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 Render rend(title, ScreenWidth, ScreenHeight);
+
+// ==================== Camera ====================
 
 void Camera::SetBounds(float worldW, float worldH)
 {
@@ -45,41 +51,44 @@ void Camera::Update(const vec2D& targetPos, float targetW, float targetH, float 
 }
 
 
+// ==================== Player ====================
 
 void Player::move(float dt, const bool* keys)
 {
     moving = false;
 
-    if(keys[SDL_SCANCODE_A])
+    if (keys[SDL_SCANCODE_A])
     {
         vel.x -= acceleration * dt;
         moving = true;
     }
-    if(keys[SDL_SCANCODE_D])
+    if (keys[SDL_SCANCODE_D])
     {
         vel.x += acceleration * dt;
         moving = true;
     }
 
-    // se non premi nulla si ferma
+    // se non premi nulla si ferma (SOLO orizzontalmente: non tocchiamo vel.y,
+    // altrimenti la gravità/il salto si "resetterebbero" ogni volta che lasci A/D)
     if (!moving)
-    {
-        vel = { 0.0f, 0.0f };
-    }
+        vel.x = 0.0f;
 
-    // Clamp alla velocità massima (funziona sia per positivo che negativo)
+    // Clamp alla velocità massima orizzontale
     if (vel.x > maxSpeed)  vel.x = maxSpeed;
     if (vel.x < -maxSpeed) vel.x = -maxSpeed;
 
-    if(keys[SDL_SCANCODE_SPACE] && isGround)
+    if (keys[SDL_SCANCODE_SPACE] && isGround)
     {
         vel.y = jumpForce;
         isGround = false;
     }
 
+    // La gravità si accumula sulla velocità verticale, non sostituisce il movimento
+    vel.y += GRAVITY * dt;
+
     // Aggiorna la posizione in base alla velocità
     pos.x += vel.x;
-    pos.y += GRAVITY * dt;
+    pos.y += vel.y * dt;
 }
 
 
@@ -87,92 +96,229 @@ void Player::Update(float dt, const bool* keys)
 {
     move(dt, keys);
 }
+
 void Player::Draw(const Camera& camera)
 {
+    // playerBox qui è puramente per il disegno: coordinate relative alla camera
     playerBox.x = pos.x - camera.pos.x;
     playerBox.y = pos.y - camera.pos.y;
+    playerBox.w = width;
+    playerBox.h = height;
 
     SDL_SetRenderDrawColor(rend.GetRenderer(), 0, 0, 0, 255);
     SDL_RenderFillRect(rend.GetRenderer(), &playerBox);
 }
 
 
+// ==================== level ====================
 
+level::level(const char* path)
+{
+    map.LoadFromFile(rend.GetRenderer(), path);
+    mapRect = {
+        0.0f, // x
+        0.0f, // y
+        float(map.texture->w),
+        float(map.texture->h),
+    };
+}
+level::~level()
+{
+    map.Destroy();
+}
+
+void level::LoadLevelCollisionInfo(const char* path)
+{
+    std::ifstream file(path);
+    if (!file.is_open())
+    {
+        SDL_Log("Impossibile aprire il file di collisione: %s", path);
+        return;
+    }
+
+    json data;
+    try
+    {
+        file >> data;
+    }
+    catch (const json::parse_error& e)
+    {
+        SDL_Log("Errore parsing JSON (%s): %s", path, e.what());
+        return;
+    }
+
+    for (const auto& platform : data)
+    {
+        bool isGround = platform.value("isGround", false);
+        bool isRect   = platform.value("isRect", false);
+        const auto& points = platform["points"];
+
+        if (isRect)
+        {
+            if (points.size() != 4)
+            {
+                SDL_Log("Rettangolo con %zu punti invece di 4, saltato", points.size());
+                continue;
+            }
+
+            Rectangle rect;
+            rect.isGround = isGround;
+            for (size_t i = 0; i < 4; ++i)
+            {
+                rect.p[i].x = points[i]["x"].get<float>();
+                rect.p[i].y = points[i]["y"].get<float>();
+            }
+            rects.push_back(rect);
+        }
+        else
+        {
+            if (points.size() != 3)
+            {
+                SDL_Log("Triangolo con %zu punti invece di 3, saltato", points.size());
+                continue;
+            }
+
+            Triangle tri;
+            tri.isGround = isGround;
+            for (size_t i = 0; i < 3; ++i)
+            {
+                tri.p[i].x = points[i]["x"].get<float>();
+                tri.p[i].y = points[i]["y"].get<float>();
+            }
+            tris.push_back(tri);
+        }
+    }
+}
+
+
+// ==================== Game ====================
 
 Game::Game() :
     isRunning(true),
-    map(IMG_LoadTexture(rend.GetRenderer(), "assets/map.png"))
+    lvl("assets/map.png")
 {
-    if (map == nullptr)
-    {
-        SDL_Log("could not load the assets proprelly, ERROR: %s", SDL_GetError());
-        return; // evita di dereferenziare map più sotto
-    }
-
-    mapRect = { 0.0f, 0.0f, float(map->w), float(map->h) };
-    camera.SetBounds(mapRect.w, mapRect.h);
-
-    ground = Polygon::LoadFromFile("tools/leveleditor/levelData.txt"); // <-- LoadFromFile, non LoadFromString
+    lvl.LoadLevelCollisionInfo("src/collisionData/map1.json");
+    camera.SetBounds(float(lvl.map.texture->w), float(lvl.map.texture->h));
 }
 
-Game::~Game()
+void Game::ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface)
 {
-    SDL_DestroyTexture(map);
+    if (!result.colliding)
+        return;
+
+    player.pos.x += result.mtv.x;
+    player.pos.y += result.mtv.y;
+
+    float len = std::sqrt(result.mtv.x * result.mtv.x + result.mtv.y * result.mtv.y);
+    if (len < 1e-6f)
+        return;
+
+    vec2D normal{ result.mtv.x / len, result.mtv.y / len };
+
+    // Soglia di pendenza: normal.y molto negativo = superficie quasi orizzontale (pavimento/rampa dolce)
+    // normal.y vicino a 0 = superficie verticale (muro)
+    const float groundThreshold = 0.5f; // regola in base a quanto ripide vuoi le rampe percorribili
+
+    if (normal.y < -groundThreshold)
+    {
+        // Pavimento o rampa percorribile: NON tocchiamo vel.x,
+        // lo controlla completamente l'input del player in move()
+        if (player.vel.y < 0.0f || true) // atterraggio: azzeriamo solo la componente verticale
+            player.vel.y = 0.0f;
+
+        if (isGroundSurface)
+            player.isGround = true;
+    }
+    else if (normal.y > groundThreshold)
+    {
+        // Soffitto
+        if (player.vel.y < 0.0f)
+            player.vel.y = 0.0f;
+    }
+    else
+    {
+        // Muro laterale (normale prevalentemente orizzontale)
+        player.vel.x = 0.0f;
+    }
+}
+
+void Game::CheckCollisionWithLevel()
+{
+    // Reimpostato ogni frame: verrà settato a true solo se troviamo
+    // un contatto valido con una superficie isGround
+    player.isGround = false;
+
+    for (auto& rect : lvl.rects)
+    {
+        SDL_FRect box = player.GetWorldBox(); // ricalcolata ad ogni test, dopo eventuali risoluzioni precedenti
+        CollisionResult res = CheckCollisionAABBRect(box, rect);
+        ResolvePlayerCollision(res, rect.isGround);
+    }
+
+    for (auto& tri : lvl.tris)
+    {
+        SDL_FRect box = player.GetWorldBox();
+        CollisionResult res = CheckCollisionAABBTriangle(box, tri);
+        ResolvePlayerCollision(res, tri.isGround);
+    }
+}
+
+void Game::DrawDebugCollisions()
+{
+    SDL_Renderer* renderer = rend.GetRenderer();
+
+    // Disegna i lati di un poligono (array di vec2D) come linee, convertendo
+    // dalle coordinate world a quelle schermo sottraendo la posizione della camera
+    auto drawPolygonOutline = [&](const vec2D* points, int count, Uint8 r, Uint8 g, Uint8 b)
+    {
+        SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+
+        for (int i = 0; i < count; ++i)
+        {
+            const vec2D& p1 = points[i];
+            const vec2D& p2 = points[(i + 1) % count];
+
+            SDL_RenderLine(renderer,
+                p1.x - camera.pos.x, p1.y - camera.pos.y,
+                p2.x - camera.pos.x, p2.y - camera.pos.y);
+        }
+    };
+
+    for (const auto& rect : lvl.rects)
+    {
+        if (rect.isGround)
+            drawPolygonOutline(rect.p, 4, 0, 255, 0);   // verde = ground
+        else
+            drawPolygonOutline(rect.p, 4, 255, 0, 0);   // rosso = non ground
+    }
+
+    for (const auto& tri : lvl.tris)
+    {
+        if (tri.isGround)
+            drawPolygonOutline(tri.p, 3, 0, 255, 0);
+        else
+            drawPolygonOutline(tri.p, 3, 255, 0, 0);
+    }
+
 }
 
 void Game::Update(float dt, const bool* keys)
 {
     player.Update(dt, keys);
-
-    // 1. Spostamento e collisione Asse X
-    player.pos.x += player.vel.x * dt;
-    SDL_FRect boxX = { player.pos.x, player.pos.y, 100.0f, 100.0f };
-    CollisionResult resX = ResolveAABBPolygon(boxX, ground);
-    if (resX.collided)
-    {
-        player.pos.x += resX.mtv.x;
-        player.vel.x = 0.0f;
-    }
-
-    // 2. Spostamento e collisione Asse Y (Salto + Gravità)
-    player.pos.y += player.vel.y * dt;
-    player.isGround = false; // Resettiamo lo stato ogni frame
-
-    SDL_FRect boxY = { player.pos.x, player.pos.y, 100.0f, 100.0f };
-    CollisionResult resY = ResolveAABBPolygon(boxY, ground);
-    if (resY.collided)
-    {
-        player.pos.y += resY.mtv.y;
-
-        // Se l'MTV ci spinge verso l'ALTO (mtv.y < 0), significa che stiamo toccando il pavimento
-        if (resY.mtv.y < 0.0f)
-        {
-            player.isGround = true;
-            player.vel.y = 0.0f; // Azzera la velocità di caduta
-        }
-        // Se l'MTV ci spinge verso il BASSO (mtv.y > 0), abbiamo picchiato la testa
-        else if (resY.mtv.y > 0.0f)
-        {
-            player.vel.y = 0.0f;
-        }
-    }
-
-    camera.Update(player.pos, 100.0f, 100.0f, dt);
+    CheckCollisionWithLevel();
+    camera.Update(player.pos, player.width, player.height, dt);
 }
 
 void Game::Draw()
 {
     SDL_SetRenderScale(rend.GetRenderer(), camera.zoom, camera.zoom);
 
-    SDL_FRect mapDrawRect = {
-        mapRect.x - camera.pos.x,
-        mapRect.y - camera.pos.y,
-        mapRect.w,
-        mapRect.h
-    };
+    lvl.mapRect.x = -camera.pos.x;
+    lvl.mapRect.y = -camera.pos.y;
+    SDL_RenderTexture(rend.GetRenderer(), lvl.map.texture, nullptr, &lvl.mapRect);
 
-    SDL_RenderTexture(rend.GetRenderer(), map, nullptr, &mapDrawRect);
     player.Draw(camera);
+    DrawDebugCollisions();
 
     SDL_SetRenderScale(rend.GetRenderer(), 1.0f, 1.0f);
 }
@@ -183,7 +329,7 @@ void Game::run()
     Uint64 lastTime = SDL_GetTicks();
     keys = SDL_GetKeyboardState(nullptr);
 
-    while(isRunning)
+    while (isRunning)
     {
         Uint64 currentTime = SDL_GetTicks();
         float dt = (currentTime - lastTime) / 1000.0f;
@@ -191,8 +337,14 @@ void Game::run()
 
         while (SDL_PollEvent(&e))
         {
-            if(e.type == SDL_EVENT_QUIT || keys[SDL_SCANCODE_ESCAPE])
+            if (e.type == SDL_EVENT_QUIT)
                 isRunning = false;
+
+            if (e.type == SDL_EVENT_KEY_DOWN)
+            {
+                if (e.key.key == SDLK_ESCAPE)
+                    isRunning = false;
+            }
         }
 
             Update(dt, keys);
@@ -205,5 +357,4 @@ void Game::run()
 
         SDL_RenderPresent(rend.GetRenderer());
     }
-
 }
