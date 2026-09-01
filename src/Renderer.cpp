@@ -1,7 +1,10 @@
 #include "Render.hpp"
 #include "SDL3_image/SDL_image.h"
+#include "Global.hpp"
 
 #include <cstdlib>
+
+Render rend(title, ScreenWidth, ScreenHeight);
 
 Render::Render(const char* title, int ScreenWidth, int ScreenHeight)
 {
@@ -35,6 +38,17 @@ Render::~Render()
     SDL_DestroyWindow(window);
     SDL_Quit();
 }
+
+void Render::drawThickLine(float x1, float y1, float x2, float y2, float thickness)
+{
+    float half = thickness / 2.0f;
+    for (float offset = -half; offset <= half; offset += 1.0f)
+    {
+        SDL_RenderLine(renderer, x1, y1 + offset, x2, y2 + offset);
+        SDL_RenderLine(renderer, x1 + offset, y1, x2 + offset, y2);
+    }
+}
+
 
 SDL_Window* Render::GetWindow()
 {

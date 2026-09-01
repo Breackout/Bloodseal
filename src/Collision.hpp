@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Game.hpp"
 #include "Global.hpp"
 
 
@@ -20,3 +21,9 @@ CollisionResult CheckCollisionAABBRect(const SDL_FRect& box, const Rectangle& re
 
 // Collisione AABB (box) vs triangolo
 CollisionResult CheckCollisionAABBTriangle(const SDL_FRect& box, const Triangle& tri);
+
+// Controlla il player contro tutti i rects/tris di tutti i livelli caricati
+void CheckCollisionWithLevel(Player& player, level& lvl);
+
+// Applica l'MTV di una singola collisione al player e aggiorna vel/isGround di conseguenza
+void ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface, Player& player);

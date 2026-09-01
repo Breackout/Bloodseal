@@ -9,6 +9,8 @@ class Render
         Render(const char* title, int screenWidth, int ScreenHeight);
         ~Render();
 
+        void drawThickLine(float x1, float y1, float x2, float y2, float thickness);
+
         SDL_Window* GetWindow();
         SDL_Renderer* GetRenderer();
 
@@ -27,3 +29,5 @@ struct Texture
 
     SDL_Texture* texture;
 };
+
+extern Render rend;
