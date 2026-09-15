@@ -140,6 +140,23 @@ void Player::Update(float dt, const bool* keys)
         }
     }
 
+    if(malus.isBleeding)
+    {
+        if(malus.bleedingTimer <= 10.0f)
+        {
+            malus.bleedingTimer += dt;
+
+
+
+        }
+        else
+        {
+            malus.bleedingTimer = 0.0f;
+
+            malus.isBleeding = false;
+        }
+    }
+
 
 
     move(dt, keys);

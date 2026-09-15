@@ -1,0 +1,60 @@
+#include "GUI.hpp"
+#include "Render.hpp"
+#include "global.hpp"
+#include <functional>
+
+GUI::Button::Button(const float margin, std::string text, SDL_Color c) :
+    m_margin(margin),
+    m_buttonColor(c),
+    m_text(text)
+{
+    m_buttonRect = { 0.0f, 0.0f, 0.0f, 0.0f };
+}
+
+void GUI::Button::Draw()
+{
+    SDL_Color c = m_buttonColor;
+    if(isHover)
+    {
+        c.r -= 50;
+        c.g -= 50;
+        c.b -= 50;
+    }
+
+    SDL_SetRenderDrawColor(rend.GetRenderer(), c.r, c.g, c.b, 255);
+    SDL_RenderFillRect(rend.GetRenderer(), &m_buttonRect);
+
+    // Testo centrato (approssimativo, font 8x8 px)
+    SDL_SetRenderDrawColor(rend.GetRenderer(), 255, 255, 255, 255);
+    float testoX = m_buttonRect.x + m_buttonRect.w / 2 - float(m_text.size() * 8) / 2;
+    float testoY = m_buttonRect.y + m_buttonRect.h / 2 - 4;
+    SDL_RenderDebugText(rend.GetRenderer(), testoX, testoY, m_text.c_str());
+}
+
+void GUI::Button::Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& anchor, std::function<void()> function)
+{
+    // ricalcola posizione e size ogni frame cosi' il bottone resta ancorato
+    // dentro "anchor" (es. la barra "base") con un margine fisso, anche se
+    // la finestra (e quindi anchor) cambia dimensione
+    float h = anchor.h - m_margin * 2.0f;
+    if (h < 0.0f) h = 0.0f;
+    float w = h; // bottone quadrato
+
+    m_buttonRect = {
+        anchor.x + m_margin,
+        anchor.y + m_margin,
+        w,
+        h
+    };
+
+    isHover = (mp.x >= m_buttonRect.x && mp.x <= m_buttonRect.x + m_buttonRect.w
+            && mp.y >= m_buttonRect.y && mp.y <= m_buttonRect.y + m_buttonRect.h);
+
+    if (isMouseButtonDown)
+    {
+        if (isHover && function)
+        {
+            function();
+        }
+    }
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 // #include "global.hpp"
+#include "GUI.hpp"
 #include "global.hpp"
 
 #include <SDL3/SDL.h>
@@ -15,7 +16,7 @@ class Editor
 
         void Update(SDL_Event &e);
         void DrawWorld();
-        void DrawUI();
+        void UI();
 
         void run();
 
@@ -39,7 +40,9 @@ class Editor
         SDL_Cursor* cursorDefault;
         SDL_Cursor* cursorMove;
         DrawMode currentMode;
-
+        statusBar currentStatus;
         // ui stuff
-        SDL_FRect base = { 0.0f, 500.0f, 800.0f, 100.0f };
+        SDL_Color colore = {150, 150, 150, 255};
+        SDL_FRect base;
+        GUI::Button back{10, "back", colore};
 };

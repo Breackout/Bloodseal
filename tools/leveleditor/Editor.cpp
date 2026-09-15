@@ -10,15 +10,19 @@
 #include "Editor.hpp"
 #include "Render.hpp"
 #include "global.hpp"
+#include "GUI.hpp"
+
 #include <SDL3_image/SDL_image.h>
 
 Editor::Editor() :
     isRunning(true),
     camera()
 {
+    base = { 0.0f, 500.0f, float(ScreenWidth), float(ScreenHeight)*0.2f };
     cursorDefault = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
     cursorMove = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
     currentMode = DrawMode::Rectangle;
+    currentStatus = statusBar::base;
 }
 
 Editor::~Editor()
@@ -103,6 +107,9 @@ vec2D Editor::SnapToNearbyPoint(vec2D worldPos, float radius = 30.0f)
 
 void Editor::Update(SDL_Event &e)
 {
+    base = { 0.0f, float(ScreenHeight) - float(ScreenHeight)*0.2f, float(ScreenWidth), float(ScreenHeight) * 0.2f };
+    isHoverUI = mousePos.y >= ScreenHeight *0.2f;
+
     while (SDL_PollEvent(&e))
     {
         switch (e.type)
@@ -123,6 +130,10 @@ void Editor::Update(SDL_Event &e)
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 if(e.button.button == SDL_BUTTON_LEFT)
                 {
+                    if(isHoverUI)
+                    {
+                        isLeftButtonPressed = true;
+                    }
                     if(isSpacePressed)
                     {
                         isLeftButtonPressed = true;
@@ -137,6 +148,10 @@ void Editor::Update(SDL_Event &e)
             break;
 
             case SDL_EVENT_MOUSE_BUTTON_UP:
+                if(e.button.button == SDL_BUTTON_LEFT)
+                {
+                    isLeftButtonPressed = false;
+                }
                 if (e.button.button == SDL_BUTTON_LEFT && isDrawingShape)
                 {
                     vec2D current = ScreenToWorld(mousePos, camera);
@@ -297,10 +312,16 @@ void Editor::DrawWorld()
         rend.DrawPoint(camera, current, 4.0f);
     }
 }
-void Editor::DrawUI()
+void Editor::UI()
 {
     SDL_SetRenderDrawColor(rend.GetRenderer(), 200, 200, 200, 255);
     SDL_RenderFillRect(rend.GetRenderer(), &base);
+
+    back.Update(isLeftButtonPressed, mousePos, base, [&](){
+        currentStatus = statusBar::base;
+    });
+    back.Draw();
+
 }
 
 void Editor::run()
@@ -320,7 +341,7 @@ void Editor::run()
 
         // ------- drawing the gui -------
         SDL_SetRenderScale(rend.GetRenderer(), 1.0f, 1.0f);
-                    // DrawUI();
+                    UI();
 
         // ------- end -------
         SDL_RenderPresent(rend.GetRenderer());

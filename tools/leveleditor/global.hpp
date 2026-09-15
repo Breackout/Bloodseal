@@ -33,8 +33,10 @@ inline vec2D mousePos = { 0.0f, 0.0f };
 inline vec2D oldMousePos = { 0.0f, 0.0f };
 inline bool isSpacePressed = false;
 inline bool isLeftButtonPressed = false;
+inline bool isHoverUI = false;
 
 enum class DrawMode { Rectangle, Triangle };
+enum class statusBar { base, forme, nemici, stanze, altro };
 inline bool isDrawingShape = false;
 inline vec2D shapeOrigin = { 0.0f, 0.0f };
 

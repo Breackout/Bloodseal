@@ -24,7 +24,7 @@ float DamageSistem::LessDamage()
         (player.stats.defence + 350);
 }
 
-// float DamageSistem::FinalDamage()
-// {
+float DamageSistem::FinalDamage()
+{
 
-// }
+}
