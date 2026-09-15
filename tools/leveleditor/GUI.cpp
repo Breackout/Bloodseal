@@ -58,3 +58,31 @@ void GUI::Button::Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& anch
         }
     }
 }
+
+void GUI::Toolbar::Add(Button& button, std::function<void()> onClick)
+{
+    m_entries.push_back({ &button, onClick });
+}
+
+void GUI::Toolbar::Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& row)
+{
+    SDL_FRect anchor = row; // il primo bottone parte dal bordo sinistro di "row"
+
+    for (Entry& entry : m_entries)
+    {
+        entry.button->Update(isMouseButtonDown, mp, anchor, entry.onClick);
+
+        // il prossimo bottone si aggancia al bordo destro di questo:
+        // il suo m_margin fara' automaticamente da spaziatura
+        anchor.x = entry.button->m_buttonRect.x + entry.button->m_buttonRect.w;
+        anchor.w = row.x + row.w - anchor.x;
+    }
+}
+
+void GUI::Toolbar::Draw()
+{
+    for (Entry& entry : m_entries)
+    {
+        entry.button->Draw();
+    }
+}

@@ -44,5 +44,7 @@ class Editor
         // ui stuff
         SDL_Color colore = {150, 150, 150, 255};
         SDL_FRect base;
-        GUI::Button back{10, "back", colore};
+        GUI::Button back{10.0f, "back", colore};
+        GUI::Button next{10.0f, "next", colore}; // esempio di secondo bottone
+        GUI::Toolbar toolbar; // dispone back/next in fila dentro "base", niente rettangoli manuali
 };

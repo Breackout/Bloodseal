@@ -23,6 +23,15 @@ Editor::Editor() :
     cursorMove = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
     currentMode = DrawMode::Rectangle;
     currentStatus = statusBar::base;
+
+    // registra i bottoni una sola volta: il Toolbar penserà a disporli
+    // in fila dentro "base" ad ogni frame
+    toolbar.Add(back, [&](){
+        currentStatus = statusBar::base;
+    });
+    toolbar.Add(next, [&](){
+        currentMode = DrawMode::Triangle;
+    });
 }
 
 Editor::~Editor()
@@ -107,9 +116,6 @@ vec2D Editor::SnapToNearbyPoint(vec2D worldPos, float radius = 30.0f)
 
 void Editor::Update(SDL_Event &e)
 {
-    base = { 0.0f, float(ScreenHeight) - float(ScreenHeight)*0.2f, float(ScreenWidth), float(ScreenHeight) * 0.2f };
-    isHoverUI = mousePos.y >= ScreenHeight *0.2f;
-
     while (SDL_PollEvent(&e))
     {
         switch (e.type)
@@ -134,6 +140,7 @@ void Editor::Update(SDL_Event &e)
                     {
                         isLeftButtonPressed = true;
                     }
+
                     if(isSpacePressed)
                     {
                         isLeftButtonPressed = true;
@@ -148,10 +155,11 @@ void Editor::Update(SDL_Event &e)
             break;
 
             case SDL_EVENT_MOUSE_BUTTON_UP:
-                if(e.button.button == SDL_BUTTON_LEFT)
+                if (e.button.button == SDL_BUTTON_LEFT)
                 {
                     isLeftButtonPressed = false;
                 }
+
                 if (e.button.button == SDL_BUTTON_LEFT && isDrawingShape)
                 {
                     vec2D current = ScreenToWorld(mousePos, camera);
@@ -244,6 +252,9 @@ void Editor::Update(SDL_Event &e)
                 }
             break;
         }
+
+        base = { 0.0f, float(ScreenHeight) - float(ScreenHeight)*0.2f, float(ScreenWidth), float(ScreenHeight) * 0.2f };
+        isHoverUI = mousePos.y >= ScreenHeight *0.2f;
     }
 
     // Se la callback ha impostato un nuovo file, lo carichiamo qui
@@ -317,11 +328,8 @@ void Editor::UI()
     SDL_SetRenderDrawColor(rend.GetRenderer(), 200, 200, 200, 255);
     SDL_RenderFillRect(rend.GetRenderer(), &base);
 
-    back.Update(isLeftButtonPressed, mousePos, base, [&](){
-        currentStatus = statusBar::base;
-    });
-    back.Draw();
-
+    toolbar.Update(isLeftButtonPressed, mousePos, base);
+    toolbar.Draw();
 }
 
 void Editor::run()
