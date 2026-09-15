@@ -44,7 +44,29 @@ class Editor
         // ui stuff
         SDL_Color colore = {150, 150, 150, 255};
         SDL_FRect base;
+        // --- BOTTONI E TOOLBARS ---
         GUI::Button back{10.0f, "back", colore};
-        GUI::Button next{10.0f, "next", colore}; // esempio di secondo bottone
-        GUI::Toolbar toolbar; // dispone back/next in fila dentro "base", niente rettangoli manuali
+
+        // Bottoni per lo stato "base"
+        GUI::Button forme{10.0f, "forme", colore};
+        GUI::Button nemici{10.0f, "nemici", colore};
+        GUI::Button stanze{10.0f, "stanze", colore};
+        GUI::Button altro{10.0f, "altro", colore};
+
+        // Bottoni specifici per le sotto-sezioni
+        GUI::Button rettangolo{10.0f, "rettangolo", colore};
+        GUI::Button triangolo{10.0f, "triangolo", colore};
+
+        GUI::Button apri{10.0f, "apri", colore};
+        GUI::Button salva{10.0f, "salva", colore};
+
+        // Una Toolbar per ogni statusBar
+        GUI::Toolbar baseToolbar;
+        GUI::Toolbar formeToolbar;
+        GUI::Toolbar nemiciToolbar;
+        GUI::Toolbar stanzeToolbar;
+        GUI::Toolbar altroToolbar;
+
+        // Funzione helper per ottenere la toolbar corrente in base a currentStatus
+        GUI::Toolbar* GetCurrentToolbar();
 };

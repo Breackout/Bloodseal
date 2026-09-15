@@ -24,14 +24,58 @@ Editor::Editor() :
     currentMode = DrawMode::Rectangle;
     currentStatus = statusBar::base;
 
-    // registra i bottoni una sola volta: il Toolbar penserà a disporli
-    // in fila dentro "base" ad ogni frame
-    toolbar.Add(back, [&](){
+    // tool bar principale
+    baseToolbar.Add(forme, [&](){
+        currentStatus = statusBar::forme;
+    });
+    baseToolbar.Add(nemici, [&](){
+        currentStatus = statusBar::nemici;
+    });
+    baseToolbar.Add(stanze, [&](){
+        currentStatus = statusBar::stanze;
+    });
+    baseToolbar.Add(altro, [&](){
+        currentStatus = statusBar::altro;
+    });
+
+    // --- 2. TOOLBAR FORME ---
+    formeToolbar.Add(back, [&](){
         currentStatus = statusBar::base;
     });
-    toolbar.Add(next, [&](){
+    formeToolbar.Add(rettangolo, [&](){
+        currentMode = DrawMode::Rectangle;
+    });
+    formeToolbar.Add(triangolo, [&](){
         currentMode = DrawMode::Triangle;
     });
+
+    // --- 3. TOOLBAR NEMICI ---
+    nemiciToolbar.Add(back, [&](){
+        currentStatus = statusBar::base;
+    });
+
+
+
+
+    // --- 4. TOOLBAR STANZE ---
+    stanzeToolbar.Add(back, [&](){
+        currentStatus = statusBar::base;
+    });
+
+
+
+
+    // --- 5. TOOLBAR ALTRO ---
+    altroToolbar.Add(back, [&](){
+        currentStatus = statusBar::base;
+    });
+    altroToolbar.Add(apri, [&](){
+        OpenImageDialog();
+    });
+    altroToolbar.Add(salva, [&](){
+        SavePlatform("tools/leveleditor/collisionData/levelData.json");
+    });
+
 }
 
 Editor::~Editor()
@@ -114,6 +158,18 @@ vec2D Editor::SnapToNearbyPoint(vec2D worldPos, float radius = 30.0f)
     return bestPoint;
 }
 
+GUI::Toolbar* Editor::GetCurrentToolbar()
+{
+    switch (currentStatus)
+    {
+        case statusBar::base:   return &baseToolbar;
+        case statusBar::forme:  return &formeToolbar;
+        case statusBar::nemici: return &nemiciToolbar;
+        case statusBar::stanze: return &stanzeToolbar;
+        case statusBar::altro:  return &altroToolbar;
+        default:                return &baseToolbar;
+    }
+}
 void Editor::Update(SDL_Event &e)
 {
     while (SDL_PollEvent(&e))
@@ -325,11 +381,17 @@ void Editor::DrawWorld()
 }
 void Editor::UI()
 {
+    // Disegna il rettangolo di sfondo della barra UI
     SDL_SetRenderDrawColor(rend.GetRenderer(), 200, 200, 200, 255);
     SDL_RenderFillRect(rend.GetRenderer(), &base);
 
-    toolbar.Update(isLeftButtonPressed, mousePos, base);
-    toolbar.Draw();
+    // Recupera ed esegue Update e Draw solo per la toolbar corrente
+    GUI::Toolbar* currentToolbar = GetCurrentToolbar();
+    if (currentToolbar)
+    {
+        currentToolbar->Update(isLeftButtonPressed, mousePos, base);
+        currentToolbar->Draw();
+    }
 }
 
 void Editor::run()

@@ -15,7 +15,7 @@ namespace GUI
         // del rettangolo di ancoraggio (es. "base") sia in x che in y
         Button(const float margin, std::string text, SDL_Color);
         void Draw();
-        void Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& anchor, std::function<void()> function);
+        void Update(bool& isMouseButtonDown, vec2D mp, const SDL_FRect& anchor, std::function<void()> function);
 
         float m_margin;
         SDL_FRect m_buttonRect;
@@ -37,7 +37,7 @@ namespace GUI
         };
 
         void Add(Button& button, std::function<void()> onClick);
-        void Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& row);
+        void Update(bool& isMouseButtonDown, vec2D mp, const SDL_FRect& row);
         void Draw();
 
         std::vector<Entry> m_entries;

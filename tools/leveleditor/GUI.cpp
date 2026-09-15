@@ -31,7 +31,7 @@ void GUI::Button::Draw()
     SDL_RenderDebugText(rend.GetRenderer(), testoX, testoY, m_text.c_str());
 }
 
-void GUI::Button::Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& anchor, std::function<void()> function)
+void GUI::Button::Update(bool& isMouseButtonDown, vec2D mp, const SDL_FRect& anchor, std::function<void()> function)
 {
     // ricalcola posizione e size ogni frame cosi' il bottone resta ancorato
     // dentro "anchor" (es. la barra "base") con un margine fisso, anche se
@@ -50,12 +50,10 @@ void GUI::Button::Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& anch
     isHover = (mp.x >= m_buttonRect.x && mp.x <= m_buttonRect.x + m_buttonRect.w
             && mp.y >= m_buttonRect.y && mp.y <= m_buttonRect.y + m_buttonRect.h);
 
-    if (isMouseButtonDown)
+    if (isMouseButtonDown && isHover && function)
     {
-        if (isHover && function)
-        {
-            function();
-        }
+        function();
+        isMouseButtonDown = false;
     }
 }
 
@@ -64,7 +62,7 @@ void GUI::Toolbar::Add(Button& button, std::function<void()> onClick)
     m_entries.push_back({ &button, onClick });
 }
 
-void GUI::Toolbar::Update(bool isMouseButtonDown, vec2D mp, const SDL_FRect& row)
+void GUI::Toolbar::Update(bool& isMouseButtonDown, vec2D mp, const SDL_FRect& row)
 {
     SDL_FRect anchor = row; // il primo bottone parte dal bordo sinistro di "row"
 
