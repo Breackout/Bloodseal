@@ -1,4 +1,5 @@
 #include "Game.hpp"
+#include "Entity.hpp"
 #include "Global.hpp"
 #include "Collision.hpp"
 
@@ -10,9 +11,10 @@ using json = nlohmann::json;
 
 // ==================== level ====================
 
-level::level(const char* path)
+level::level(const char* texture, const char* collision)
 {
-    map.LoadFromFile(rend.GetRenderer(), path);
+    map.LoadFromFile(rend.GetRenderer(), texture);
+    LoadLevelCollisionInfo(collision);
     mapRect = {
         0.0f, // x
         0.0f, // y
@@ -24,7 +26,6 @@ level::~level()
 {
     map.Destroy();
 }
-
 void level::LoadLevelCollisionInfo(const char* path)
 {
     std::ifstream file(path);
@@ -89,13 +90,18 @@ void level::LoadLevelCollisionInfo(const char* path)
 }
 
 
+
+
+
+
+
+
 // ==================== Game ====================
 
 Game::Game() :
     isRunning(true),
-    lvl("assets/map.png")
+    lvl("assets/map.png", "src/collisionData/map.json")
 {
-    lvl.LoadLevelCollisionInfo("src/collisionData/map1.json");
     camera.SetBounds(float(lvl.map.texture->w), float(lvl.map.texture->h));
 }
 
@@ -143,7 +149,9 @@ void Game::DrawDebugCollisions()
 void Game::Update(float dt, const bool* keys)
 {
     player.Update(dt, keys);
+    e.Update(player, dt);
     CheckCollisionWithLevel(player, lvl);
+    CheckCollisionWithLevel(e, lvl);
     camera.Update(player.pos, player.width, player.height, dt);
 }
 
@@ -156,6 +164,7 @@ void Game::Draw()
     SDL_RenderTexture(rend.GetRenderer(), lvl.map.texture, nullptr, &lvl.mapRect);
 
     player.Draw(camera);
+    e.Draw(camera);
     DrawDebugCollisions();
 
     SDL_SetRenderScale(rend.GetRenderer(), 1.0f, 1.0f);

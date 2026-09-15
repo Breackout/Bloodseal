@@ -16,7 +16,7 @@ struct level
 
     void LoadLevelCollisionInfo(const char* path);
 
-    level(const char* path);
+    level(const char* texture, const char* collision);
     ~level();
 };
 
@@ -35,6 +35,7 @@ class Game
         bool isRunning;
 
         Player player;
+        Enemy e;
         const bool* keys;
         Camera camera;
         level lvl;

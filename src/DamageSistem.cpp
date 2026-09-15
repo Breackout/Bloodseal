@@ -1,5 +1,4 @@
 #include "DamageSistem.hpp"
-#include "Entity.hpp"
 
 void PlayerStats::lvlUp()
 {
@@ -13,14 +12,19 @@ void PlayerStats::lvlUp()
     magicDamage += 1;
 }
 
-DamageSistem::DamageSistem(std::vector<Enemy>& e, Player& p) :
-    enemis(e),
+DamageSistem::DamageSistem(Enemy& e, Player& p) :
+    enemy(e),
     player(p)
 {}
 
-float DamageSistem::LessDamage(float armorPenPercent, float armorPen)
+float DamageSistem::LessDamage()
 {
     return
-        ((player.stats.defence - armorPenPercent) - armorPen) /
+        ((player.stats.defence - player.stats.armorPenPercent) - player.stats.armorPen) /
         (player.stats.defence + 350);
 }
+
+// float DamageSistem::FinalDamage()
+// {
+
+// }

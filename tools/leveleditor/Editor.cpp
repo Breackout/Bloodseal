@@ -1,3 +1,12 @@
+// key binds
+// 1 / 2 | cambia tra rettangolo e triangolo
+// S | salva in un file
+// O | apre il file manager per scegliere un file
+// + / - | zooma o dezooma
+// cancella | cancella lultima forma che hai fatto
+// E | aggiunge nemici
+// A | mette un interagibile per cambiare stanza
+
 #include "Editor.hpp"
 #include "Render.hpp"
 #include "global.hpp"
@@ -195,11 +204,6 @@ void Editor::Update(SDL_Event &e)
                         SDL_SetCursor(cursorMove);
                     break;
 
-                    case SDLK_RETURN:
-                        platforms.push_back(currentPlatform);
-                        currentPlatform = platform{};
-                    break;
-
                     case SDLK_BACKSPACE:
                         if (!platforms.empty())
                             platforms.pop_back();
@@ -240,7 +244,6 @@ void Editor::Update(SDL_Event &e)
 
     camera.MoveCamera();
 }
-
 void Editor::DrawWorld()
 {
     vec2D current = ScreenToWorld(mousePos, camera);
@@ -294,6 +297,11 @@ void Editor::DrawWorld()
         rend.DrawPoint(camera, current, 4.0f);
     }
 }
+void Editor::DrawUI()
+{
+    SDL_SetRenderDrawColor(rend.GetRenderer(), 200, 200, 200, 255);
+    SDL_RenderFillRect(rend.GetRenderer(), &base);
+}
 
 void Editor::run()
 {
@@ -308,15 +316,13 @@ void Editor::run()
         SDL_SetRenderDrawColor(rend.GetRenderer(), 0, 0, 0, 255);
         SDL_RenderClear(rend.GetRenderer());
         SDL_SetRenderScale(rend.GetRenderer(), camera.zoom, camera.zoom);
-
-        DrawWorld();
-
+                    DrawWorld();
 
         // ------- drawing the gui -------
         SDL_SetRenderScale(rend.GetRenderer(), 1.0f, 1.0f);
+                    // DrawUI();
 
-        // DrawGui();
-
+        // ------- end -------
         SDL_RenderPresent(rend.GetRenderer());
     }
 }

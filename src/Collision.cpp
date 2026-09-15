@@ -1,4 +1,5 @@
 #include "Collision.hpp"
+#include "Entity.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -129,13 +130,13 @@ CollisionResult CheckCollisionAABBTriangle(const SDL_FRect& box, const Triangle&
     return CheckCollisionSAT(boxPoints.data(), 4, tri.p, 3);
 }
 
-void ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface, Player& player)
+void ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface, Entity& e)
 {
     if (!result.colliding)
         return;
 
-    player.pos.x += result.mtv.x;
-    player.pos.y += result.mtv.y;
+    e.pos.x += result.mtv.x;
+    e.pos.y += result.mtv.y;
 
     float len = std::sqrt(result.mtv.x * result.mtv.x + result.mtv.y * result.mtv.y);
     if (len < 1e-6f)
@@ -151,42 +152,42 @@ void ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface,
     {
         // Pavimento o rampa percorribile: NON tocchiamo vel.x,
         // lo controlla completamente l'input del player in move()
-        if (player.vel.y < 0.0f || true) // atterraggio: azzeriamo solo la componente verticale
-            player.vel.y = 0.0f;
+        if (e.vel.y < 0.0f || true) // atterraggio: azzeriamo solo la componente verticale
+            e.vel.y = 0.0f;
 
         if (isGroundSurface)
-            player.isGround = true;
+            e.isGround = true;
     }
     else if (normal.y > groundThreshold)
     {
         // Soffitto
-        if (player.vel.y < 0.0f)
-            player.vel.y = 0.0f;
+        if (e.vel.y < 0.0f)
+            e.vel.y = 0.0f;
     }
     else
     {
         // Muro laterale (normale prevalentemente orizzontale)
-        player.vel.x = 0.0f;
+        e.vel.x = 0.0f;
     }
 }
 
-void CheckCollisionWithLevel(Player& player, level& lvl)
+void CheckCollisionWithLevel(Entity& e, level& lvl)
 {
     // Reimpostato ogni frame: verrà settato a true solo se troviamo
     // un contatto valido con una superficie isGround
-    player.isGround = false;
+    e.isGround = false;
 
     for (auto& rect : lvl.rects)
     {
-        SDL_FRect box = player.GetWorldBox(); // ricalcolata ad ogni test, dopo eventuali risoluzioni precedenti
+        SDL_FRect box = e.GetWorldBox(); // ricalcolata ad ogni test, dopo eventuali risoluzioni precedenti
         CollisionResult res = CheckCollisionAABBRect(box, rect);
-        ResolvePlayerCollision(res, rect.isGround, player);
+        ResolvePlayerCollision(res, rect.isGround, e);
     }
 
     for (auto& tri : lvl.tris)
     {
-        SDL_FRect box = player.GetWorldBox();
+        SDL_FRect box = e.GetWorldBox();
         CollisionResult res = CheckCollisionAABBTriangle(box, tri);
-        ResolvePlayerCollision(res, tri.isGround, player);
+        ResolvePlayerCollision(res, tri.isGround, e);
     }
 }

@@ -3,7 +3,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#include "Editor.hpp"
 #include "global.hpp"
 
 class Render

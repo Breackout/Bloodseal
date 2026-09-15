@@ -1,4 +1,5 @@
 #include "Entity.hpp"
+#include "Global.hpp"
 #include "Render.hpp"
 #include <cmath>
 
@@ -107,21 +108,74 @@ void Player::move(float dt, const bool* keys)
     pos.x += vel.x * dt;
     pos.y += vel.y * dt;
 }
-
+Player::Player()
+{
+    pos = { 1000.0f, 1000.0f };
+    maxSpeed = stats.maxSpeed;
+}
 
 void Player::Update(float dt, const bool* keys)
 {
+    if(malus.isPoisoned)
+    {
+        if(malus.poisenedTimer <= 10.0f)
+        {
+            malus.poisenedTimer += dt;
+            malus.damageTickTimer += dt;
+
+            stats.attackDamage = stats.attackDamage * 0.8f;
+
+            if(malus.damageTickTimer >= 1.0f)
+            {
+                stats.HP -= stats.HP * 0.9f;
+                malus.damageTickTimer = 0.0f;
+            }
+        }
+        else
+        {
+            malus.poisenedTimer = 0.0f;
+            malus.damageTickTimer = 0.0f;
+            stats.attackDamage = stats.attackDamage / 0.8f;
+            malus.isPoisoned = false;
+        }
+    }
+
+
+
     move(dt, keys);
 }
 
-void Player::Draw(const Camera& camera)
+void Entity::Draw(const Camera& camera)
 {
     // playerBox qui è puramente per il disegno: coordinate relative alla camera
-    playerBox.x = pos.x - camera.pos.x;
-    playerBox.y = pos.y - camera.pos.y;
-    playerBox.w = width;
-    playerBox.h = height;
+    box.x = pos.x - camera.pos.x;
+    box.y = pos.y - camera.pos.y;
+    box.w = width;
+    box.h = height;
 
     SDL_SetRenderDrawColor(rend.GetRenderer(), 0, 0, 0, 255);
-    SDL_RenderFillRect(rend.GetRenderer(), &playerBox);
+    SDL_RenderFillRect(rend.GetRenderer(), &box);
+}
+
+
+
+
+Enemy::Enemy()
+{
+    pos = { 2000.0f, 1000.0f };
+    maxSpeed = stats.maxSpeed;
+}
+void Enemy::move(const Player& p, float dt)
+{
+    if(p.pos.x > pos.x)
+        pos.x += maxSpeed * dt;
+
+    if(p.pos.x < pos.x)
+        pos.x -= maxSpeed * dt;
+
+    pos.y += GRAVITY * dt;
+}
+void Enemy::Update(const Player& p, float dt)
+{
+    move(p, dt);
 }

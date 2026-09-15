@@ -2,6 +2,7 @@
 
 // #include "global.hpp"
 #include "global.hpp"
+
 #include <SDL3/SDL.h>
 #include <string>
 #include <mutex>
@@ -14,7 +15,7 @@ class Editor
 
         void Update(SDL_Event &e);
         void DrawWorld();
-        void DrawGui();
+        void DrawUI();
 
         void run();
 
@@ -38,4 +39,7 @@ class Editor
         SDL_Cursor* cursorDefault;
         SDL_Cursor* cursorMove;
         DrawMode currentMode;
+
+        // ui stuff
+        SDL_FRect base = { 0.0f, 500.0f, 800.0f, 100.0f };
 };
