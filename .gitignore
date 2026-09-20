@@ -1,0 +1,5 @@
+.cache
+build
+zProgram
+compile_commands.json
+tools/leveleditor/collisionData

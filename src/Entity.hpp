@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Global.hpp"
+#include <SDL3/SDL.h>
 
 class Camera
 {
@@ -90,7 +91,7 @@ class Entity
         float width = 100.0f;
         float height = 100.0f;
 
-        SDL_FRect box;
+        SDL_FRect collisionBox;
 
         // variabili per il movimento
         vec2D vel = { 0.0f, 0.0f };

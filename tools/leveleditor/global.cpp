@@ -63,7 +63,7 @@ std::string GetAvailablePath(const std::string& path)
     return candidate.string();
 }
 
-void SavePlatform(const char* path)
+void SaveLevel(const char* path)
 {
     json j = json::array();
 
@@ -85,6 +85,8 @@ void SavePlatform(const char* path)
 
         j.push_back(platJson);
     }
+
+
 
     std::string finalPath = GetAvailablePath(path);
 

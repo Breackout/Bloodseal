@@ -13,6 +13,7 @@
 #include "GUI.hpp"
 
 #include <SDL3_image/SDL_image.h>
+#include <iostream>
 
 Editor::Editor() :
     isRunning(true),
@@ -73,7 +74,7 @@ Editor::Editor() :
         OpenImageDialog();
     });
     altroToolbar.Add(salva, [&](){
-        SavePlatform("tools/leveleditor/collisionData/levelData.json");
+        SaveLevel("tools/leveleditor/collisionData/levelData.json");
     });
 
 }
@@ -289,7 +290,7 @@ void Editor::Update(SDL_Event &e)
                     break;
 
                     case SDLK_S:
-                        SavePlatform("tools/leveleditor/collisionData/levelData.json");
+                        SaveLevel("tools/leveleditor/collisionData/levelData.json");
                         SDL_Log("platforms saved successfully");
                     break;
 
@@ -397,6 +398,11 @@ void Editor::UI()
 void Editor::run()
 {
     SDL_Event e;
+
+    std::cout << "inserisci id livello: ";
+    std::cin >> id_currentLevel;
+
+    std::cout << "ok";
 
     while (isRunning)
     {

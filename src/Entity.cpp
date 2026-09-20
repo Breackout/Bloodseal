@@ -44,6 +44,28 @@ void Camera::Update(const vec2D& targetPos, float targetW, float targetH, float 
 }
 
 
+
+
+
+// ==================== Entity ====================
+
+void Entity::Draw(const Camera& camera)
+{
+    // playerBox qui è puramente per il disegno: coordinate relative alla camera
+    collisionBox.x = pos.x - camera.pos.x;
+    collisionBox.y = pos.y - camera.pos.y;
+    collisionBox.w = width;
+    collisionBox.h = height;
+
+    SDL_SetRenderDrawColor(rend.GetRenderer(), 0, 0, 0, 255);
+    SDL_RenderFillRect(rend.GetRenderer(), &collisionBox);
+}
+
+
+
+
+
+
 // ==================== Player ====================
 
 void Player::move(float dt, const bool* keys)
@@ -162,20 +184,10 @@ void Player::Update(float dt, const bool* keys)
     move(dt, keys);
 }
 
-void Entity::Draw(const Camera& camera)
-{
-    // playerBox qui è puramente per il disegno: coordinate relative alla camera
-    box.x = pos.x - camera.pos.x;
-    box.y = pos.y - camera.pos.y;
-    box.w = width;
-    box.h = height;
-
-    SDL_SetRenderDrawColor(rend.GetRenderer(), 0, 0, 0, 255);
-    SDL_RenderFillRect(rend.GetRenderer(), &box);
-}
 
 
 
+// ==================== Enemy ====================
 
 Enemy::Enemy()
 {
@@ -184,13 +196,21 @@ Enemy::Enemy()
 }
 void Enemy::move(const Player& p, float dt)
 {
+    moving = false;
     if(p.pos.x > pos.x)
-        pos.x += maxSpeed * dt;
+        vel.x += acceleration * dt, moving = true;
 
     if(p.pos.x < pos.x)
-        pos.x -= maxSpeed * dt;
+        vel.x -= acceleration * dt, moving = true;
+
+    if(!moving)
+        vel.x *= 0.9f;
+
+    if (vel.x > maxSpeed) vel.x = maxSpeed;
+    if (vel.x < -maxSpeed) vel.x = -maxSpeed;
 
     pos.y += GRAVITY * dt;
+    pos.x += vel.x * dt;
 }
 void Enemy::Update(const Player& p, float dt)
 {

@@ -24,11 +24,30 @@ void GUI::Button::Draw()
     SDL_SetRenderDrawColor(rend.GetRenderer(), c.r, c.g, c.b, 255);
     SDL_RenderFillRect(rend.GetRenderer(), &m_buttonRect);
 
-    // Testo centrato (approssimativo, font 8x8 px)
+    // scala basata sull'altezza (come prima)
+    float scaleByHeight = m_buttonRect.h / 60.0f;
+
+    // scala basata sulla larghezza: quanto spazio serve al testo a scala 1.0
+    // vs quanto spazio c'è davvero nel bottone (con un po' di padding)
+    float padding = 6.0f; // margine interno orizzontale, in px "reali"
+    float textWidthAtScale1 = float(m_text.size()) * 8.0f;
+    float availableWidth = m_buttonRect.w - padding * 2.0f;
+    float scaleByWidth = (textWidthAtScale1 > 0.0f) ? (availableWidth / textWidthAtScale1) : scaleByHeight;
+
+    // prendiamo la scala piu' piccola tra le due, cosi' il testo non esce mai
+    float textScale = std::min(scaleByHeight, scaleByWidth);
+    if (textScale < 0.3f) textScale = 0.3f; // clamp minimo per non sparire del tutto
+
     SDL_SetRenderDrawColor(rend.GetRenderer(), 255, 255, 255, 255);
-    float testoX = m_buttonRect.x + m_buttonRect.w / 2 - float(m_text.size() * 8) / 2;
-    float testoY = m_buttonRect.y + m_buttonRect.h / 2 - 4;
+
+    float charW = 8.0f * textScale;
+    float charH = 8.0f * textScale;
+    float testoX = (m_buttonRect.x + m_buttonRect.w / 2 - float(m_text.size()) * charW / 2) / textScale;
+    float testoY = (m_buttonRect.y + m_buttonRect.h / 2 - charH / 2) / textScale;
+
+    SDL_SetRenderScale(rend.GetRenderer(), textScale, textScale);
     SDL_RenderDebugText(rend.GetRenderer(), testoX, testoY, m_text.c_str());
+    SDL_SetRenderScale(rend.GetRenderer(), 1.0f, 1.0f);
 }
 
 void GUI::Button::Update(bool& isMouseButtonDown, vec2D mp, const SDL_FRect& anchor, std::function<void()> function)

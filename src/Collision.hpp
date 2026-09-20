@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Entity.hpp"
-#include "Game.hpp"
+#include "levelManager.hpp"
 #include "Global.hpp"
 
 
@@ -24,7 +24,7 @@ CollisionResult CheckCollisionAABBRect(const SDL_FRect& box, const Rectangle& re
 CollisionResult CheckCollisionAABBTriangle(const SDL_FRect& box, const Triangle& tri);
 
 // Controlla il player contro tutti i rects/tris di tutti i livelli caricati
-void CheckCollisionWithLevel(Entity& e, level& lvl);
+void CheckCollisionWithLevel(Entity& e, const level& lvl);
 
 // Applica l'MTV di una singola collisione al player e aggiorna vel/isGround di conseguenza
 void ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface, Entity& e);

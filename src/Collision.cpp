@@ -171,7 +171,7 @@ void ResolvePlayerCollision(const CollisionResult& result, bool isGroundSurface,
     }
 }
 
-void CheckCollisionWithLevel(Entity& e, level& lvl)
+void CheckCollisionWithLevel(Entity& e, const level& lvl)
 {
     // Reimpostato ogni frame: verrà settato a true solo se troviamo
     // un contatto valido con una superficie isGround

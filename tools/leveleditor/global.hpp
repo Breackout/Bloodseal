@@ -15,6 +15,12 @@ struct platform
     bool isRect = false;
 };
 
+struct ChangeLevel
+{
+    vec2D p[4];
+    bool isInteractable = false;
+};
+
 struct Camera
 {
     vec2D pos = { 0.0f, 0.0f };
@@ -28,6 +34,8 @@ inline int ScreenHeight = 600;
 
 inline std::vector<platform> platforms;
 inline platform currentPlatform;
+inline int id_currentLevel = 0;
+inline int id_nextLevel = 0;
 
 inline vec2D mousePos = { 0.0f, 0.0f };
 inline vec2D oldMousePos = { 0.0f, 0.0f };
@@ -42,4 +50,4 @@ inline vec2D shapeOrigin = { 0.0f, 0.0f };
 
 vec2D WorldToScreen(vec2D worldPos, Camera& camera);
 vec2D ScreenToWorld(vec2D screenPos, Camera& camera);
-void SavePlatform(const char* path);
+void SaveLevel(const char* path);
